@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'course',
 ]
 
 MIDDLEWARE = [
@@ -76,6 +78,15 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+    },
+    'myApi':{
+        'ENGINE':'django.db.backends.mysql',
+        'NAME': 'myApi',
+        'USER': 'test',
+        'PASSWORD': '123456',
+        'HOST': 'ec2-78-12-183-10.mx-central-1.compute.amazonaws.com',
+        'PORT': '3306',
+        'charset': 'utf8',
     }
 }
 
@@ -102,9 +113,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'zh-CN'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Shanghai'
 
 USE_I18N = True
 
@@ -120,3 +131,26 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination', # 分页
+    'PAGE_SIZE': 50, # 每页大小
+    'DATE_FORMAT': '%Y-%m-%d %H:%M:%S', # 接口时间格式
+    'DEFAULT_RENDERER_CLASSES': ( # 重定向
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ),
+    'DEFAULT_PARSER_CLASSES': ( # 解析request.data
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser'
+        'rest_framework.parsers.MultiPartParser',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': ( # 权限控制
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': [ # 认证
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ]
+}
