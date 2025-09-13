@@ -44,7 +44,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
+    'rest_framework', # 注册rest_framework
+    'rest_framework.authtoken', # 注册 drf token 认证
+    'course.apps.CourseConfig', # 注册 course.apps.CourseConfig
 ]
 
 LANGUAGE_CODE = 'zh-CN' # 语言
@@ -76,8 +78,146 @@ REST_FRAMEWORK = {
     ] 
 }
 ```
+- 因为注册了 rest_framework.authtoken 再次提交数据表，会创建 authtoken_token 表
+```python
+(.env) hb32366@hb32366deMacBook-Pro tutorial % manage.py makemigrations
+No changes detected
+(.env) hb32366@hb32366deMacBook-Pro tutorial % manage.py migrate       
+Operations to perform:
+  Apply all migrations: admin, auth, authtoken, contenttypes, sessions
+Running migrations:
+  Applying authtoken.0001_initial... OK
+  Applying authtoken.0002_auto_20160226_1747... OK
+  Applying authtoken.0003_tokenproxy... OK
+  Applying authtoken.0004_alter_tokenproxy_options... OK
+
+```
+- 配置rest_framework.authtoken 路由, 就可以直接访问api_auth/login接口了
+```python
+from django.urls import path, include
+
+urlpatterns = [
+    path('api_auth/', include('rest_framework.urls'), name='api_auth'), # drf的登录登出接口
+    
+```
 ## 二、模型
-### 2.1、开发课程信息模型类
+### 2.1、多数据库配置，可以在setting中定义多个数据库实例
+- 在setting.py文件中配置多数据库实例default、myApi
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    },
+    'myApi':{
+        'ENGINE':'django.db.backends.mysql',
+        'NAME': 'myApi',
+        'USER': 'test',
+        'PASSWORD': '123456',
+        'HOST': 'ec2-78-12-183-10.mx-central-1.compute.amazonaws.com',
+        'PORT': '3306',
+        'OPTIONS': {'charset': 'utf8'},
+    }
+}
+```
+- 在setting.py 同级目录创建 db_router.py（内容固定写法，可直接copy使用），实现自动路由数据库
+```python
+from django.conf import settings
+
+DATABASE_MAPPING = settings.DATABASE_APPS_MAPPING
+
+class DatabaseAppsRouter(object):
+    """
+    A router to control all database operations on models for different
+    databases.
+    In case an app is not set in settings.DATABASE_APPS_MAPPING, the router
+    will fallback to the `default` database.
+    Settings example:
+    DATABASE_APPS_MAPPING = {'app1': 'db1', 'app2': 'db2'}
+    """
+
+    def db_for_read(self, model, **hints):
+        """"Point all read operations to the specific database."""
+        """将所有读操作指向特定的数据库。"""
+        if model._meta.app_label in DATABASE_MAPPING:
+            return DATABASE_MAPPING[model._meta.app_label]
+        return None
+
+    def db_for_write(self, model, **hints):
+        """Point all write operations to the specific database."""
+        """将所有写操作指向特定的数据库。"""
+        if model._meta.app_label in DATABASE_MAPPING:
+            return DATABASE_MAPPING[model._meta.app_label]
+        return None
+
+    def allow_relation(self, obj1, obj2, **hints):
+        """Allow any relation between apps that use the same database."""
+        """允许使用相同数据库的应用程序之间的任何关系"""
+        db_obj1 = DATABASE_MAPPING.get(obj1._meta.app_label)
+        db_obj2 = DATABASE_MAPPING.get(obj2._meta.app_label)
+        if db_obj1 and db_obj2:
+            if db_obj1 == db_obj2:
+                return True
+            else:
+                return False
+        else:
+            return None
+
+    def allow_syncdb(self, db, model):
+        """Make sure that apps only appear in the related database."""
+        """确保这些应用程序只出现在相关的数据库中。"""
+        if db in DATABASE_MAPPING.values():
+            return DATABASE_MAPPING.get(model._meta.app_label) == db
+        elif model._meta.app_label in DATABASE_MAPPING:
+            return False
+        return None
+
+    def allow_migrate(self, db, app_label, model=None, **hints):
+        """Make sure the auth app only appears in the 'auth_db' database."""
+        """确保身份验证应用程序只出现在“authdb”数据库中。"""
+        if db in DATABASE_MAPPING.values():
+            return DATABASE_MAPPING.get(app_label) == db
+        elif app_label in DATABASE_MAPPING:
+            return False
+        return None
+```
+- 在setting.py文件中配置app 和 db 映射，并指定db_router
+```python
+# APP - DB 映射, 格式app:database
+DATABASE_APPS_MAPPING = {
+   'tutorial' : 'default',
+   'course' : 'myApi'
+}
+
+# 数据库路由
+DATABASE_ROUTERS = ['tutorial.db_router.DatabaseAppsRouter']
+```
+### 2.2、开发课程信息模型类
+- 在course.models.py 中定义课程信息模型, app_label = 'course' 来指定app名，用于多数据库映射,teacher是外键，指定为author表的id,这里需要注意，外键默认是int(11),使用migrate迁移时可能会遇到类型不一致
+```python
+from django.db import models
+from django.conf import settings
+
+# Create your models here.
+class Course(models.Model):
+    name = models.CharField(max_length=255, unique=True, help_text='课程名称', verbose_name='课程名称')
+    introduction = models.TextField(help_text='课程介绍', verbose_name='介绍')
+    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, help_text='课程讲师', verbose_name='讲师')
+    price = models.DecimalField(max_digits=6, decimal_places=2, help_text='课程价格', verbose_name='价格')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    class Meta:
+        db_table = 'course' # 指定表名
+        app_label = 'course'  # 指定app名，用于多数据库映射
+        verbose_name = '课程信息'
+        verbose_name_plural = verbose_name
+        ordering = ['price'] # 排序字段
+```
+- 迁移course表数据，需要指定数据表 和 数据库
+```python
+manage.py makemigrations course 
+manage.py migrate course --database myApi
+```
 ## 三、序列化
 ### 3.1、继承ModelSerializer序列化模型类
 ### 3.2、带URL的HyperlinkedModelSerializer

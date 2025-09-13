@@ -37,8 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
-    'course',
+    'rest_framework', # 注册rest_framework
+    'rest_framework.authtoken', # 注册 drf token 认证
+    'course.apps.CourseConfig', # 注册 course.apps.CourseConfig
 ]
 
 MIDDLEWARE = [
@@ -86,10 +87,18 @@ DATABASES = {
         'PASSWORD': '123456',
         'HOST': 'ec2-78-12-183-10.mx-central-1.compute.amazonaws.com',
         'PORT': '3306',
-        'charset': 'utf8',
+        'OPTIONS': {'charset': 'utf8'},
     }
 }
 
+# APP - DB 映射, 格式app:database
+DATABASE_APPS_MAPPING = {
+   'tutorial' : 'default',
+   'course' : 'myApi'
+}
+
+# 数据库路由
+DATABASE_ROUTERS = ['tutorial.db_router.DatabaseAppsRouter']
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
