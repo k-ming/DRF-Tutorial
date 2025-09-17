@@ -94,7 +94,7 @@ DATABASES = {
 # APP - DB 映射, 格式app:database
 DATABASE_APPS_MAPPING = {
    'tutorial' : 'default',
-   'course' : 'myApi'
+   'course' : 'default'
 }
 
 # 数据库路由

@@ -1,4 +1,4 @@
-from django.utils.translation.trans_real import activate
+from pexpect.replwrap import pythonfrom django.utils.translation.trans_real import activate
 
 # DRF-Tutorial
 Django rest framework 示例教程
@@ -193,7 +193,7 @@ DATABASE_APPS_MAPPING = {
 DATABASE_ROUTERS = ['tutorial.db_router.DatabaseAppsRouter']
 ```
 ### 2.2、开发课程信息模型类
-- 在course.models.py 中定义课程信息模型, app_label = 'course' 来指定app名，用于多数据库映射,teacher是外键，指定为author表的id,这里需要注意，外键默认是int(11),使用migrate迁移时可能会遇到类型不一致
+- 在course.models.py 中定义课程信息模型, app_label = 'course' 来指定app名，用于多数据库映射,teacher是外键，指定为author表的id, 需要设置默认值，否则迁移表时回报错
 ```python
 from django.db import models
 from django.conf import settings
@@ -202,7 +202,7 @@ from django.conf import settings
 class Course(models.Model):
     name = models.CharField(max_length=255, unique=True, help_text='课程名称', verbose_name='课程名称')
     introduction = models.TextField(help_text='课程介绍', verbose_name='介绍')
-    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, help_text='课程讲师', verbose_name='讲师')
+    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, help_text='课程讲师', verbose_name='讲师', default=None)
     price = models.DecimalField(max_digits=6, decimal_places=2, help_text='课程价格', verbose_name='价格')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
@@ -213,10 +213,28 @@ class Course(models.Model):
         verbose_name_plural = verbose_name
         ordering = ['price'] # 排序字段
 ```
-- 迁移course表数据，需要指定数据表 和 数据库
+
+- 迁移course表数据，需要指定数据表 和 数据库，才能创建Course表
+- 注意，如果不能更新，可尝试删除django_migrates记录，再操作
 ```python
 manage.py makemigrations course 
 manage.py migrate course --database myApi
+```
+
+-  编辑admin.py, 注册 Course 到admin 后台，实现后台操作数据，做完这步操作后就可以去admin后台添加记录了
+
+```python
+from django.contrib import admin
+from .models import Course
+
+@admin.register(Course)
+class CourseAdmin(admin.ModelAdmin):
+    list_display = ['name', 'teacher', 'price', 'created_at', 'updated_at']
+    search_fields = ['name']
+    list_filter = ['created_at', 'updated_at']
+    ordering = ['price']
+    list_per_page = 10
+    list_editable = ['price']
 ```
 ## 三、序列化
 ### 3.1、继承ModelSerializer序列化模型类
