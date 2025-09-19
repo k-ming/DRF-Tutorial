@@ -20,4 +20,5 @@ from django.urls import path, include
 urlpatterns = [
     path('api_auth/', include('rest_framework.urls'), name='api_auth'), # drf的登录登出接口
     path('admin/', admin.site.urls),
+    path('course/', include('course.urls'), name='course'),
 ]

@@ -241,6 +241,99 @@ class CourseAdmin(admin.ModelAdmin):
 ### 3.2、带URL的HyperlinkedModelSerializer
 ## 四、DRF视图和路由
 ### 4.1 Django的views开发RESTful API接口
+- Django原生function base view，主要用了django的JsonResponse 和 HttpResponse
+- 使用django.core.serializers.serialize 进行序列化的时候需要 指定序列化格式为 json
+- 使用post请求时，需要用 @csrf_exempt 装饰，才能进行跨域请求
+```python
+@csrf_exempt
+def courseList(request):
+    courses = Course.objects.all()
+    if request.method == "GET":
+        return HttpResponse(
+            serialize('json', courses),
+            content_type="application/json",
+            status=200,
+        )
+    if request.method == "POST":
+        data = json.loads(request.body)
+        errors = {}
+        # 字段验证
+        if not data.get("name"):
+            errors['msg'] = 'name is required'
+        elif not data.get("price"):
+            errors['msg'] = 'price is required'
+        elif errors:
+            return HttpResponse(
+                json.dumps(errors),
+                content_type="application/json",
+            )
+        else:
+            course = Course.objects.create(
+                name=data["name"],
+                teacher=User.objects.get(username='admin'),
+                price=data["price"],
+                introduction=data["introduction"],
+            )
+            course.save()
+            return HttpResponse(serialize('json', [course]), status=201)
+
+```
+- Django原生class base view，和FBV类似，处理序列话，响应，还需要自己实现数据的验证，分页，权限控制
+- 其中teacher字段使用的是 User模型的实例，使用原生view无法获取到登录用户
+- 跨域可以用类装饰器，然后指定方法装饰器，同时需要指定方法是 dispatch，在Django中dispatch会自动定位到post方法
+```python
+@method_decorator(csrf_exempt, name='dispatch')
+class CourseList(View):
+    def get(self, request):
+        query_set = Course.objects.all()
+        return HttpResponse(serialize('json', query_set), status=200, content_type="application/json")
+
+    def post(self, request):
+        data = json.loads(request.body)
+        errors = {}
+        if not data.get("name"):
+            errors['msg'] = 'name is required'
+        if not data.get("price"):
+            errors['msg'] = 'price is required'
+        if not errors:
+            course = Course.objects.create(
+                name=data["name"],
+                teacher=User.objects.get(username='kingming'),
+                price=data["price"],
+                introduction=data["introduction"],
+            )
+            course.save()
+            return JsonResponse(json.loads(serialize('json', [course])), status=201, safe=False)
+        else:
+            return JsonResponse(errors, status=404)
+
+class CourseDetail(View):
+    def get(self, request, pk):
+        try:
+            query_set = Course.objects.get(id=pk)
+        except Course.DoesNotExist:
+            return JsonResponse({"msg": "course does not exist"}, status=404)
+        return HttpResponse(serialize('json', [query_set]), status=200, content_type="application/json")
+    def put(self, request, pk):
+        pass
+    def delete(self, request, pk):
+        pass
+```
+- 在course中定义路由，并添加到项目urls.py 中
+```python
+from . import djangoViews
+
+app_name = 'course'
+
+urlpatterns = [
+    path('fbv/list/', djangoViews.courseList, name='Django FBV list'),
+    path('fbv/detail/<int:pk>', djangoViews.courseDetail, name='Django FBV detail'),
+    path('cbv/list/', djangoViews.CourseList.as_view(), name='Django CBV list'),
+]
+
+# 在项目的URL中添加
+path('course/', include('course.urls'), name='course'),
+```
 ### 4.2 DRF中的装饰器api_view
 ### 4.3 DRF中的视图APIView
 ### 4.4 DRF中的通用类视图GenericAPIView
