@@ -193,7 +193,17 @@ DATABASE_APPS_MAPPING = {
 DATABASE_ROUTERS = ['tutorial.db_router.DatabaseAppsRouter']
 ```
 ### 2.2、开发课程信息模型类
-- 在course.models.py 中定义课程信息模型, app_label = 'course' 来指定app名，用于多数据库映射,teacher是外键，指定为author表的id, 需要设置默认值，否则迁移表时回报错
+- 在course.models.py 中定义课程信息模型, app_label = 'course' 来指定app名，用于多数据库映射,teacher是外键，指定为User表的实例
+- on_delete是Django模型中ForeignKey、OneToOneField和ManyToManyField的一个重要参数，它定义了当被引用的对象被删除时，引用它的对象应该如何处理。
+
+| 场景 | 推荐选项 | 原因 |
+| :-----| ----: | :----: |
+| 强依赖关系 | CASCADE | 子对象无独立存在意义 |
+| 重要数据保护 | PROTECT | 防止意外删除 |
+|  可选关联   |  SET_NULL   |  允许对象独立存在   |
+|   有默认值  |  SET_DEFAULT   |  提供备用方案   |
+|  特殊处理   |  SET   |  自定义处理逻辑   |
+
 ```python
 from django.db import models
 from django.conf import settings
@@ -237,7 +247,21 @@ class CourseAdmin(admin.ModelAdmin):
     list_editable = ['price']
 ```
 ## 三、序列化
-### 3.1、继承ModelSerializer序列化模型类
+### 3.1、继承ModelSerializer序列化模型类, 其中teacher为外键关联，序列化后输出是老师的姓名，并且是只读字段
+```python
+from rest_framework import serializers
+from .models import Course
+
+
+class CourseSerializer(serializers.ModelSerializer):
+    teacher = serializers.ReadOnlyField(source='teacher.username')
+    class Meta:
+        model = Course
+        # fields = '__all__'
+        fields = ('name', 'price', 'introduction', 'teacher')
+        read_only_fields = ('teacher',)
+        # exclude = ('teacher',)
+```
 ### 3.2、带URL的HyperlinkedModelSerializer
 ## 四、DRF视图和路由
 ### 4.1 Django的views开发RESTful API接口
@@ -334,7 +358,49 @@ urlpatterns = [
 # 在项目的URL中添加
 path('course/', include('course.urls'), name='course'),
 ```
-### 4.2 DRF中的装饰器api_view
+### 4.2 DRF中的装饰器api_view, 使用api_view 装饰器事，需要指定支持的方法，以数组形式存储
+- 需要注意的是，当反序列化时，创建只需要指定data, 更新需要指定 instance 和 data
+- 反序列化自带is_valid()方法验证入参
+```python
+@api_view(['GET', 'POST'])
+def course_list(request):
+    query_set = Course.objects.all()
+    serializer = CourseSerializer(query_set, many=True)
+    if request.method == 'GET':
+        return Response(serializer.data)
+    elif request.method == 'POST':
+        serializer = CourseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(teacher=request.user) # 获取author.User
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+def course_detail(request, pk):
+    try:
+        query_set = Course.objects.get(pk=pk)
+        serializer = CourseSerializer(query_set, many=False)
+    except Course.DoesNotExist:
+        return Response({"msg":"course is no exist"}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'GET':
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    elif request.method == 'PUT':
+        serializer = CourseSerializer(data=request.data, instance=query_set)
+        if serializer.is_valid():
+            serializer.save(partial=True)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == 'PATCH':
+        serializer = CourseSerializer(data=request.data, instance=query_set)
+        if serializer.is_valid():
+            serializer.save(partial=True, teacher=request.user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == 'DELETE':
+        query_set.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+```
 ### 4.3 DRF中的视图APIView
 ### 4.4 DRF中的通用类视图GenericAPIView
 ### 4.5 DRF的viewsets开发课程信息的增删改查接口

@@ -151,7 +151,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PARSER_CLASSES': ( # 解析request.data
         'rest_framework.parsers.JSONParser',
-        'rest_framework.parsers.FormParser'
+        # 'rest_framework.parsers.FormParser'
         'rest_framework.parsers.MultiPartParser',
     ),
     'DEFAULT_PERMISSION_CLASSES': ( # 权限控制
