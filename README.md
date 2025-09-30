@@ -362,6 +362,9 @@ path('course/', include('course.urls'), name='course'),
 - 需要注意的是，当反序列化时，创建只需要指定data, 更新需要指定 instance 和 data
 - 反序列化自带is_valid()方法验证入参
 ```python
+"""
+DRF的FBV， 装饰器api_view视图
+"""
 @api_view(['GET', 'POST'])
 def course_list(request):
     query_set = Course.objects.all()
@@ -401,7 +404,51 @@ def course_detail(request, pk):
         query_set.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 ```
-### 4.3 DRF中的视图APIView
+### 4.3 DRF中的视图APIView，只需继承APIView类，实现List 和 Detail类即可
+```python
+"""
+DRF 的CBV， APIView
+"""
+class CourseList(APIView):
+    def get(self, request):
+        query_set = Course.objects.all()
+        serializer = CourseSerializer(query_set, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = CourseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(teacher=request.user)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CourseDetail(APIView):
+    def get(self, request, pk):
+        try:
+            query_set = Course.objects.get(pk=pk)
+            serializer = CourseSerializer(query_set, many=False)
+            return Response(serializer.data)
+        except Course.DoesNotExist:
+            return Response({"msg":"course is no exist"}, status=status.HTTP_404_NOT_FOUND)
+
+    def put(self, request, pk):
+        try:
+            query_set = Course.objects.get(pk=pk)
+            serializer = CourseSerializer(query_set, data=request.data)
+            if serializer.is_valid():
+                serializer.save(teacher=request.user, partial=True)
+                return Response(serializer.data)
+        except Course.DoesNotExist:
+            return Response({"msg":"course is no exist"}, status=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, pk):
+        try:
+            query_set = Course.objects.get(pk=pk)
+            query_set.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Course.DoesNotExist:
+            return Response({"msg":"course is no exist"}, status=status.HTTP_404_NOT_FOUND)
+```
 ### 4.4 DRF中的通用类视图GenericAPIView
 ### 4.5 DRF的viewsets开发课程信息的增删改查接口
 ### 4.6 Django的URLs与DRF的Routers

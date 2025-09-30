@@ -1,7 +1,7 @@
 from functools import partial
-
 from rest_framework import status
 from rest_framework.decorators import api_view
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Course
 from .serializer import CourseSerializer
@@ -47,3 +47,47 @@ def course_detail(request, pk):
     elif request.method == 'DELETE':
         query_set.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+"""
+DRF 的CBV， APIView
+"""
+class CourseList(APIView):
+    def get(self, request):
+        query_set = Course.objects.all()
+        serializer = CourseSerializer(query_set, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = CourseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(teacher=request.user)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CourseDetail(APIView):
+    def get(self, request, pk):
+        try:
+            query_set = Course.objects.get(pk=pk)
+            serializer = CourseSerializer(query_set, many=False)
+            return Response(serializer.data)
+        except Course.DoesNotExist:
+            return Response({"msg":"course is no exist"}, status=status.HTTP_404_NOT_FOUND)
+
+    def put(self, request, pk):
+        try:
+            query_set = Course.objects.get(pk=pk)
+            serializer = CourseSerializer(query_set, data=request.data)
+            if serializer.is_valid():
+                serializer.save(teacher=request.user, partial=True)
+                return Response(serializer.data)
+        except Course.DoesNotExist:
+            return Response({"msg":"course is no exist"}, status=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, pk):
+        try:
+            query_set = Course.objects.get(pk=pk)
+            query_set.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Course.DoesNotExist:
+            return Response({"msg":"course is no exist"}, status=status.HTTP_404_NOT_FOUND)
+
