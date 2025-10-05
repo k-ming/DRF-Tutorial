@@ -450,7 +450,61 @@ class CourseDetail(APIView):
             return Response({"msg":"course is no exist"}, status=status.HTTP_404_NOT_FOUND)
 ```
 ### 4.4 DRF中的通用类视图GenericAPIView
+-  使用generics.ListCreateAPIView实现列表查询，和创建课程,只需要指定查询集和序列器即可
+```python
+from rest_framework import generics
+from .models import Course
+from .serializer import CourseSerializer
+class CourseList(generics.ListCreateAPIView):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+```
+- 但是当我们发起post请求时，会报下面的错误，是因为我们在之前的view中手动指定了teacher字段，而ListCreateAPIView没有这样的实现
+```shell
+django.db.utils.IntegrityError: NOT NULL constraint failed: course.teacher_id
+```
+- 通过查看ListCreateAPIView源码，它提供了 perform_create方法，这里可以重写，来实现指定teacher字段
+```shell
+    def perform_create(self, serializer):
+        serializer.save(teacher=self.request.user)
+```
+- 同样的，查询操作单个课程详情，只需要继承 generics.RetrieveUpdateDestroyAPIView 即可
+```python
+class CourseDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+```
 ### 4.5 DRF的viewsets开发课程信息的增删改查接口
+- 使用viewsets.ModelViewSet 实现接口，代码极大简化了
+```python
+from rest_framework import viewsets
+from .models import Course
+from .serializer import CourseSerializer
+
+"""
+继承ModelViewSet
+优点：极大简化代码，实现了列表和详情集成到一个类中
+"""
+class CourseViewSet(viewsets.ModelViewSet):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(teacher=self.request.user)
+```
+- 下面我们只要实现路由部分即可，方法一比较麻烦，需要指定 协议与方法的字典,其中 list、create、retrieve、update、delete、partial_update都是该类下定义的方法
+```python
+path('drf_viewset/', drfViewSet.CourseViewSet.as_view({"get":"list", "post":"create"}), name='DRF ViewSet list'),
+path('drf_viewset/<int:pk>', drfViewSet.CourseViewSet.as_view({"get":"retrieve", "put":"update", "delete":"destroy", "patch":"partial_update"}), name='DRF ViewSet detail'), 
+```
+- 方法儿，使用路由来注册ViewSet, 这种方法相对简单些
+```python
+
+router = routers.DefaultRouter()
+router.register(r'drf_viewset', drfViewSet.CourseViewSet)
+path("", include(router.urls), name='drf ViewSet'),
+
+```
 ### 4.6 Django的URLs与DRF的Routers
 ## 五、DRF的认证和权限
 ### 5.1 DRF认证方式介绍
