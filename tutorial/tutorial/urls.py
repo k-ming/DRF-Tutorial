@@ -16,9 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-
+from rest_framework.authtoken import views
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 urlpatterns = [
     path('api_auth/', include('rest_framework.urls'), name='api_auth'), # drf的登录登出接口
     path('admin/', admin.site.urls),
     path('course/', include('course.urls'), name='course'),
+    path('auth_token/', views.obtain_auth_token, name='auth_token'),
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+
 ]

@@ -1,15 +1,20 @@
 from functools import partial
 from rest_framework import status
 from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated, IsAdminUser,AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Course
 from .serializer import CourseSerializer
+from rest_framework.authentication import TokenAuthentication, BasicAuthentication
+from rest_framework.decorators import authentication_classes, permission_classes
 
 """
 DRF的FBV， 装饰器api_view视图
 """
 @api_view(['GET', 'POST'])
+@authentication_classes([TokenAuthentication, BasicAuthentication])
+@permission_classes([IsAuthenticated])
 def course_list(request):
     query_set = Course.objects.all()
     serializer = CourseSerializer(query_set, many=True)
@@ -24,6 +29,8 @@ def course_list(request):
 
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@authentication_classes([TokenAuthentication, BasicAuthentication])
+@permission_classes([IsAuthenticated])
 def course_detail(request, pk):
     try:
         query_set = Course.objects.get(pk=pk)
@@ -52,6 +59,8 @@ def course_detail(request, pk):
 DRF 的CBV， APIView
 """
 class CourseList(APIView):
+    authentication_classes = [TokenAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         query_set = Course.objects.all()
         serializer = CourseSerializer(query_set, many=True)
@@ -65,6 +74,8 @@ class CourseList(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CourseDetail(APIView):
+    authentication_classes = [TokenAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticated]
     def get(self, request, pk):
         try:
             query_set = Course.objects.get(pk=pk)

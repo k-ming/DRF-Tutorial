@@ -1,7 +1,9 @@
-from pexpect.replwrap import pythonfrom django.utils.translation.trans_real import activate
+from tutorial.tutorial.settings import INSTALLED_APPSfrom pexpect.replwrap import pythonfrom django.utils.translation.trans_real import activate
 
 # DRF-Tutorial
 Django rest framework 示例教程
+
+
 ## 一、环境准备
 ### 1.1 创建虚拟环境，安装django，djangorestframework
 ```python
@@ -15,6 +17,7 @@ source .env/bin/activate
 pip install django
 pip install djangorestframework
 ```
+
 ### 1.2 创建project Tutorial，创建 app course
 ```python
 # 创建Tutorial项目，注意：macOS 可能会出现找不到django-admin的情况，可以指定manage.py的目录
@@ -25,6 +28,7 @@ cd tutorial
 ../env/bin/django-admin startapp course
 
 ```
+
 ### 1.3 创建管理员账户，访问admin后台
 ```python
 # 第一次提交数据库
@@ -33,6 +37,7 @@ python3 manage.py migrate
 # 控制台创建超级管理员,设置密码123456
 python3 manage.py createsuperuser admin
 ```
+
 ### 1.4 配置项
 - 打开tutorial/setting.py，如下配置
 ```python
@@ -100,7 +105,10 @@ urlpatterns = [
     path('api_auth/', include('rest_framework.urls'), name='api_auth'), # drf的登录登出接口
     
 ```
+
+
 ## 二、模型
+
 ### 2.1、多数据库配置，可以在setting中定义多个数据库实例
 - 在setting.py文件中配置多数据库实例default、myApi
 ```python
@@ -192,6 +200,7 @@ DATABASE_APPS_MAPPING = {
 # 数据库路由
 DATABASE_ROUTERS = ['tutorial.db_router.DatabaseAppsRouter']
 ```
+
 ### 2.2、开发课程信息模型类
 - 在course.models.py 中定义课程信息模型, app_label = 'course' 来指定app名，用于多数据库映射,teacher是外键，指定为User表的实例
 - on_delete是Django模型中ForeignKey、OneToOneField和ManyToManyField的一个重要参数，它定义了当被引用的对象被删除时，引用它的对象应该如何处理。
@@ -246,7 +255,10 @@ class CourseAdmin(admin.ModelAdmin):
     list_per_page = 10
     list_editable = ['price']
 ```
+
+
 ## 三、序列化
+
 ### 3.1、继承ModelSerializer序列化模型类, 其中teacher为外键关联，序列化后输出是老师的姓名，并且是只读字段
 ```python
 from rest_framework import serializers
@@ -262,8 +274,12 @@ class CourseSerializer(serializers.ModelSerializer):
         read_only_fields = ('teacher',)
         # exclude = ('teacher',)
 ```
+
 ### 3.2、带URL的HyperlinkedModelSerializer
+
+
 ## 四、DRF视图和路由
+
 ### 4.1 Django的views开发RESTful API接口
 - Django原生function base view，主要用了django的JsonResponse 和 HttpResponse
 - 使用django.core.serializers.serialize 进行序列化的时候需要 指定序列化格式为 json
@@ -358,6 +374,7 @@ urlpatterns = [
 # 在项目的URL中添加
 path('course/', include('course.urls'), name='course'),
 ```
+
 ### 4.2 DRF中的装饰器api_view, 使用api_view 装饰器事，需要指定支持的方法，以数组形式存储
 - 需要注意的是，当反序列化时，创建只需要指定data, 更新需要指定 instance 和 data
 - 反序列化自带is_valid()方法验证入参
@@ -404,6 +421,7 @@ def course_detail(request, pk):
         query_set.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 ```
+
 ### 4.3 DRF中的视图APIView，只需继承APIView类，实现List 和 Detail类即可
 ```python
 """
@@ -449,6 +467,7 @@ class CourseDetail(APIView):
         except Course.DoesNotExist:
             return Response({"msg":"course is no exist"}, status=status.HTTP_404_NOT_FOUND)
 ```
+
 ### 4.4 DRF中的通用类视图GenericAPIView
 -  使用generics.ListCreateAPIView实现列表查询，和创建课程,只需要指定查询集和序列器即可
 ```python
@@ -474,6 +493,7 @@ class CourseDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
 ```
+
 ### 4.5 DRF的viewsets开发课程信息的增删改查接口
 - 使用viewsets.ModelViewSet 实现接口，代码极大简化了
 ```python
@@ -497,7 +517,8 @@ class CourseViewSet(viewsets.ModelViewSet):
 path('drf_viewset/', drfViewSet.CourseViewSet.as_view({"get":"list", "post":"create"}), name='DRF ViewSet list'),
 path('drf_viewset/<int:pk>', drfViewSet.CourseViewSet.as_view({"get":"retrieve", "put":"update", "delete":"destroy", "patch":"partial_update"}), name='DRF ViewSet detail'), 
 ```
-- 方法儿，使用路由来注册ViewSet, 这种方法相对简单些
+
+### 4.6 Django的URLs与DRF的Routers，使用路由来注册ViewSet, 这种方法相对简单些
 ```python
 
 router = routers.DefaultRouter()
@@ -505,12 +526,218 @@ router.register(r'drf_viewset', drfViewSet.CourseViewSet)
 path("", include(router.urls), name='drf ViewSet'),
 
 ```
-### 4.6 Django的URLs与DRF的Routers
+
+
 ## 五、DRF的认证和权限
-### 5.1 DRF认证方式介绍
-### 5.2 Django信号机制自动生成Token
-### 5.3 DRF的权限控制
+
+### 5.1 Django信号机制自动生成Token
+- 5.1.1 setting中设置全局认证方式
+```python
+    'DEFAULT_AUTHENTICATION_CLASSES': [ # 认证方式
+        'rest_framework.authentication.TokenAuthentication',
+    ]
+```
+- 5.1.2 app中注册 token, 并使用数据库迁移命令，生成authtoken_token数据表
+```python
+INSTALLED_APPS ={
+        'rest_framework.authtoken', # 注册 drf token 认证
+}
+```
+- 5.1.3 FBV、CBV对象级别设置认证方式，这种优先级高于 setting中的设置
+- 5.1.4 测试生成token， 使用manage命令生成token，执行完毕，我们可以看到表里成功写入token
+```python
+python manage.py drf_create_token admin
+Generated token 1758906d786a32f6260440b23f3217e0e77fdf89 for user admin
+```
+- 5.1.4 使用Django的信号机制，在创建用户的时候生成token, 此处我们在drfViewSet视图中实现
+```python
+from django.db.models.signals import post_save # 引入model保存时的信号
+from django.dispatch import receiver # 引入信号接收器，执行被装饰的函数
+from django.contrib.auth.models import User # 方法一：引入Django的User模型类
+from django.conf import settings # 方法一：引入Django, 通过settings.AUTH_USER_MODEL 指定sender
+from rest_framework.authtoken.models import Token  # 引入drf token模型类
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL) # sender 发送着是Django的User模型类
+def generate_token(sender, instance=None, created=False, **kwargs):
+    if created: # 如果用户创建成功
+        Token.objects.create(user=instance)
+```
+- 5.1.5 我们在admin后台创建用户成功后，可看到表了已经写入token，但是后续的请求需要使用token认证，那我们必须要能获取token
+- 5.1.5 在总路由urls.py 中使用auth_token.views 获取已存在的token，使用post请求，json格式用户名密码认证
+```python
+from rest_framework.authtoken import views
+path('auth_token/', views.obtain_auth_token, name='auth_token'), # 获取drf token
+
+curl --location 'http://127.0.0.1:8000/auth_token/' \
+--header 'Content-Type: application/json' \
+--header 'Cookie: csrftoken=mXGVKeuVNmcRtdK5chhh6arLUcqMgfbS' \
+--data '{
+    "username": "admin",
+    "password": "123456"
+}'
+
+# 可以看到成功获取到了token
+{
+    "token": "1758906d786a32f6260440b23f3217e0e77fdf89"
+}
+
+```
+- 5.1.6 携带token请求接口
+- 对于drf CBV，只需要指定认证方式，然后在请求头中加上 Authorization:Token dbf20be5f2149fb62a4d6ed40c5d1d1911e4e28c
+```python
+authentication_classes = (BasicAuthentication, TokenAuthentication,)
+
+# 请求头中携带 Token ，注意固定格式
+curl --location 'http://127.0.0.1:8000/course/drf_viewset/' \
+--header 'Authorization: Token dbf20be5f2149fb62a4d6ed40c5d1d1911e4e28c' \
+--header 'Cookie: csrftoken=mXGVKeuVNmcRtdK5chhh6arLUcqMgfbS'
+```
+- 对于drf FBV, 我们使用装饰器的方式来指定认证， 例如在drfView.py文件中, 我们导入 authentication_classes装饰器，然后直接在FBV上添加装饰器，指定认证方式，需要注意的是，次装饰器要放在api_view之后
+```python
+from rest_framework.authentication import TokenAuthentication, BasicAuthentication
+from rest_framework.decorators import authentication_classes
+
+@authentication_classes([TokenAuthentication, BasicAuthentication])
+def course_list(request):
+    pass
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@authentication_classes([TokenAuthentication, BasicAuthentication])
+def course_detail(request, pk):
+    pass
+```
+- token认证成功可以返回数据，token认证失败，返回失败提示
+```python
+{
+    "detail": "认证令牌无效。"
+}
+```
+
+### 5.2 DRF的权限控制
+- 5.2.1 设置全局权限控制, 在setting文件中设置 DEFAULT_PERMISSION_CLASSES
+```python
+    'DEFAULT_PERMISSION_CLASSES': ( # 权限控制
+        'rest_framework.permissions.IsAuthenticated', # 是否认证
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly', # 是否认证或只读
+        'rest_framework.permissions.IsAdminUser', # 是否admin用户，由User.is_staff 字段控制
+    )
+```
+- 5.2.2 对象级别权限控制, 对于drf CDB 直接用 permission_class指定， 对于drf FBV 使用装饰器permission_classes指定，例如我们针对drfView.py操作
+```python
+from rest_framework.permissions import IsAuthenticated, IsAdminUser,AllowAny
+
+@api_view(['GET', 'POST'])
+@authentication_classes([TokenAuthentication, BasicAuthentication])
+@permission_classes([IsAuthenticated])
+def course_list(request):
+    pass 
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@authentication_classes([TokenAuthentication, BasicAuthentication])
+@permission_classes([IsAuthenticated])
+def course_detail(request, pk):
+    ...
+
+class CourseList(APIView):
+    authentication_classes = [TokenAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    ...
+
+class CourseList(APIView):
+    authentication_classes = [TokenAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+# 如果不需要权限控制，直接指定 permission_classes = [AllowAny]
+```
+- 5.2.3 自定义对象级别权限控制, 对于上文中权限控制，只要是登录用户都能访问修改所有课程，现在的需求是课程老师才有权限修改自己的课程，就必须自定义权限了
+  - 创建permission.py 文件，用例自定义权限，继承drf permission.BasePermission
+```python
+from rest_framework import permissions
+
+
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        """
+        所有请求都有读权限，允许的方法为 GET/HEAD/OPTIONS
+        :param request:
+        :param view:
+        :param obj:
+        :return: bool
+        """
+        if request.method in permissions.SAFE_METHODS:  # SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
+            return True
+        return obj.teacher == request.user # 其他方法，如果请求用户不是 Course.teacher 则返回false
+```
+- 下面以genericsView 为例，添加自定义权限， 查询接口不限制，修改接口必须是所属用户
+```python
+from .permission import IsOwnerOrReadOnly
+
+class CourseDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+    authentication_classes = (TokenAuthentication,BasicAuthentication)
+    permission_classes = (IsOwnerOrReadOnly, )
+```
+- 当修改用户不是课程所属用户时会提示下面的错误
+```python
+{
+    "detail": "您没有执行该操作的权限。"
+}
+```
+
 ## 六、API接口文档
-### 6.1 如何生成API接口文档
-### 6.2 DRF的概要功能讲解，如何配置认证，如何与接口数据交互
-### 七、
+### 6.1 setting中配置API文档默认类 DEFAULT_SCHEMA_CLASS, 需要安装  pip install drf-spectacular
+```python
+'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+```
+### 6.2 配置 SPECTACULAR_SETTINGS_
+```python
+SPECTACULAR_SETTINGS = {
+    "title": "Django Rest Framework API",
+    "description": "Django Rest Framework 入门",
+    "version": "1.0.0",
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+```
+### 6.3 在总路由urls.py 中定义docs 文档路径, 请求docs/接口就可以访问swagger的接口文档了
+```python
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+
+urlpatterns = [
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+]
+```
+### 七、总结
+- Django Rest FrameWork
+    - 配置 Setting
+    - 请求 Request
+    - 响应 Response
+      - 状态 Status
+    - 模型 Model
+    - 序列化 
+      - 常用序列化器 ModelSerializer 
+      - 带URL的序列化器 HyperlinkedModelSerializer
+      - 验证 Validator
+    - 视图 View
+      - 原生django视图 
+        - 函数视图 FBV （function base view）
+        - 类视图 CBV （class base view）
+      - rest framework 视图
+        - 装饰器FBV视图 @api_view['GET', 'POST']
+        - 类视图CBV APIView
+        - 通用类视图 generics View
+        - 视图集 ViewSet
+    - 路由
+      - 注册路由
+    - 认证 Auth
+    - 权限 Permission
+    - 限流 Throttling
+    - 分页 Pagination
+    - 过滤 Filters
+    - 版本 Version
+    - 异常 Exception
+    - 内容协商 Negotiation
+    - 元数据 Metadata
+    - 渲染器 Renderers

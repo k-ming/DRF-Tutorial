@@ -8,6 +8,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from .models import Course
 
+
 """
 Django function base view 
 Django 函数视图

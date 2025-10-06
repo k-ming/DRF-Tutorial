@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'rest_framework', # 注册rest_framework
     'rest_framework.authtoken', # 注册 drf token 认证
     'course.apps.CourseConfig', # 注册 course.apps.CourseConfig
+    'drf_spectacular', # 注册接口文档
 ]
 
 MIDDLEWARE = [
@@ -142,6 +143,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema', # 指定接口文档类
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination', # 分页
     'PAGE_SIZE': 50, # 每页大小
     'DATE_FORMAT': '%Y-%m-%d %H:%M:%S', # 接口时间格式
@@ -156,10 +158,19 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': ( # 权限控制
         'rest_framework.permissions.IsAuthenticated',
+        # 'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+        # 'rest_framework.permissions.IsAdminUser',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': [ # 认证
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ]
+}
+
+SPECTACULAR_SETTINGS = {
+    "title": "Django Rest Framework API",
+    "description": "Django Rest Framework 入门",
+    "version": "1.0.0",
+    'SERVE_INCLUDE_SCHEMA': False,
 }
